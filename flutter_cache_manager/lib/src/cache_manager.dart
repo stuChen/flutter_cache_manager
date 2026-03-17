@@ -126,7 +126,7 @@ class CacheManager implements BaseCacheManager {
 
     // Store the stream and clean up when done
     _activeStreams[cacheKey] = stream;
-    stream.done.then((_) => _activeStreams.remove(cacheKey));
+    streamController.done.then((_) => _activeStreams.remove(cacheKey));
 
     _pushFileToStream(streamController, url, key, headers, withProgress);
     return stream;
