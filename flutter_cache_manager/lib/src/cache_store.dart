@@ -103,15 +103,37 @@ class CacheStore {
     if (cacheObject == null) {
       return false;
     }
-    final file = await fileSystem.createFile(cacheObject.relativePath);
-    return file.exists();
+    try {
+      final file = await fileSystem.createFile(cacheObject.relativePath);
+      final exists = await file.exists();
+      if (!exists) {
+        cacheLogger.log(
+          'CacheManager: File not found at ${cacheObject.relativePath} for key ${cacheObject.key}',
+          CacheManagerLogLevel.debug,
+        );
+      }
+      return exists;
+    } catch (e) {
+      cacheLogger.log(
+        'CacheManager: Error checking file existence for ${cacheObject.key}: $e',
+        CacheManagerLogLevel.debug,
+      );
+      return false;
+    }
   }
 
   Future<CacheObject?> _getCacheDataFromDatabase(String key) async {
     final provider = await _cacheInfoRepository;
     final data = await provider.get(key);
-    if (await _fileExists(data)) {
-      _updateCacheDataInDatabase(data!);
+    if (data != null && await _fileExists(data)) {
+      _updateCacheDataInDatabase(data);
+    } else if (data != null) {
+      // File exists in database but not on file system, remove the record
+      if (data.id != null) {
+        await provider.delete(data.id!);
+      }
+      _memCache.remove(key);
+      return null;
     }
     _scheduleCleanup();
     return data;

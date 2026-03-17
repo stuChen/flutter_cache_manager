@@ -90,7 +90,7 @@ class WebHelper {
             url,
             key: key,
             validTill: clock.now(),
-            relativePath: key//'${const Uuid().v4()}.file',
+            relativePath: '${const Uuid().v1()}.file',
           )
         : cacheObject.copyWith(url: url);
     final response = await _download(cacheObject, authHeaders);
@@ -166,9 +166,9 @@ class WebHelper {
       if (!filePath.endsWith(fileExtension)) {
         //Delete old file directly when file extension changed
         _removeOldFile(filePath);
-        // Store new file on different path
-        filePath = '${const Uuid().v4()}$fileExtension';
       }
+      // Store new file on different path
+      filePath = '${const Uuid().v1()}$fileExtension';
     }
     return cacheObject.copyWith(
       relativePath: filePath,

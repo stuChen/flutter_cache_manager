@@ -62,6 +62,9 @@ class CacheManager implements BaseCacheManager {
   /// Get the underlying web helper
   WebHelper get webHelper => _webHelper;
 
+  /// Cache for active file streams to prevent duplicate downloads
+  final Map<String, Stream<FileResponse>> _activeStreams = {};
+
   /// Get the file from the cache and/or online, depending on availability and age.
   /// Downloaded form [url], [headers] can be used for example for authentication.
   /// When a file is cached and up to date it is return directly, when the cached
@@ -111,9 +114,22 @@ class CacheManager implements BaseCacheManager {
   Stream<FileResponse> getFileStream(String url,
       {String? key, Map<String, String>? headers, bool withProgress = false}) {
     key ??= url;
+    final cacheKey = '$key-$withProgress';
+
+    // Return existing stream if already downloading to prevent duplicate requests
+    if (_activeStreams.containsKey(cacheKey)) {
+      return _activeStreams[cacheKey]!;
+    }
+
     final streamController = StreamController<FileResponse>();
+    final stream = streamController.stream;
+
+    // Store the stream and clean up when done
+    _activeStreams[cacheKey] = stream;
+    stream.done.then((_) => _activeStreams.remove(cacheKey));
+
     _pushFileToStream(streamController, url, key, headers, withProgress);
-    return streamController.stream;
+    return stream;
   }
 
   Future<void> _pushFileToStream(
@@ -218,7 +234,7 @@ class CacheManager implements BaseCacheManager {
     cacheObject ??= CacheObject(
       url,
       key: key,
-      relativePath: key,//'${const Uuid().v1()}.$fileExtension',
+      relativePath: '${const Uuid().v1()}.$fileExtension',
       validTill: DateTime.now().add(maxAge),
     );
 
@@ -253,7 +269,8 @@ class CacheManager implements BaseCacheManager {
     var cacheObject = await _store.retrieveCacheData(key);
     cacheObject ??= CacheObject(url,
         key: key,
-        relativePath: key,//'${const Uuid().v1()}''.$fileExtension',
+        relativePath: '${const Uuid().v1()}'
+            '.$fileExtension',
         validTill: DateTime.now().add(maxAge));
 
     cacheObject = cacheObject.copyWith(
